@@ -2,9 +2,25 @@ import db from '../models/index.js';
 
 /**
  * @swagger
- * tags:
- *   name: Students
- *   description: Student management
+ * /students:
+ *   post:
+ *     summary: Create a new Student
+ *     tags: [Students]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, email]
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Teacher created
  */
 
 export const createStudent = async (req, res) => {
@@ -16,20 +32,66 @@ export const createStudent = async (req, res) => {
     }
 };
 
+
 /**
  * @swagger
  * /students:
  *   get:
- *     summary: Get all students
+ *     summary: Get all student
  *     tags: [Students]
+ *     parameters:
+ *       - in: query
+ *         name: include
+ *         schema: { type : string, default:'' }
+ *         description: Join with another table
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *         description: Number of items per page
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string, default: '' }
+ *         description: sort by acs [A-Z] or desc [Z-A]
+ *       - in: query
+ *         name: column
+ *         schema: { type: string, default: 'createdAt' }
+ *         description: sort by column
+ * 
+ * 
  *     responses:
  *       200:
- *         description: List of students
+ *         description: List of student
  */
 export const getAllStudents = async (req, res) => {
+    const limit = parseInt(req.query.limit) || 10;
+    const page = parseInt(req.query.page) || 1;
+    const joinWith = req.query.include || ''
+    const sortType = req.query.sort || 'ASC'
+    const sortColumn = req.query.column || 'id'
+    const total = await db.Student.count();
+    const includeOption = (joinWith === 'Courses') ? [{ model: db.Course }]: [];
+    const order = [
+        [sortColumn,sortType]
+    ]
     try {
-        const students = await db.Student.findAll({ include: db.Course });
-        res.json(students);
+        const students = await db.Student.findAll({ 
+            order,
+            include: includeOption,
+            limit: limit, 
+            offset: (page - 1) * limit
+        });
+        res.json({
+            meta: {
+                totalItems: total,
+                page: page,
+                totalPages: Math.ceil(total / limit),
+            },
+            data: students,
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

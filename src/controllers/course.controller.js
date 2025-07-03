@@ -48,6 +48,10 @@ export const createCourse = async (req, res) => {
  *     tags: [Courses]
  *     parameters:
  *       - in: query
+ *         name: include
+ *         schema: { type : string, default:'' }
+ *         description: Join with another table
+ *       - in: query
  *         name: page
  *         schema: { type: integer, default: 1 }
  *         description: Page number
@@ -55,6 +59,15 @@ export const createCourse = async (req, res) => {
  *         name: limit
  *         schema: { type: integer, default: 10 }
  *         description: Number of items per page
+ *       - in: query
+ *         name: sort
+ *         schema: { type: string, default: '' }
+ *         description: sort by acs [A-Z] or desc [Z-A]
+ *       - in: query
+ *         name: column
+ *         schema: { type: string, default: 'createdAt' }
+ *         description: sort by column
+ * 
  *     responses:
  *       200:
  *         description: List of courses
@@ -65,13 +78,28 @@ export const getAllCourses = async (req, res) => {
     const limit = parseInt(req.query.limit) || 10;
     // which page to take
     const page = parseInt(req.query.page) || 1;
-
+    const joinWith = req.query.include || ''
+    const sortType = req.query.sort || 'ASC'
+    const sortColumn = req.query.column || 'id'
     const total = await db.Course.count();
-
+    const joinWithArray = [...new Set(  
+        joinWith.split(',').map(item => item.trim())
+    )];
+    const JoinOption = {
+        Teachers:{model : db.Teacher},
+        Students:{model : db.Student},
+    }
+    const include = joinWithArray
+                        .filter(key => JoinOption[key])
+                        .map(key => JoinOption[key]);
+    const order = [
+        [sortColumn,sortType]
+    ]
     try {
         const courses = await db.Course.findAll(
             {
-                // include: [db.Student, db.Teacher],
+                order,
+                include,
                 limit: limit, offset: (page - 1) * limit
             }
         );

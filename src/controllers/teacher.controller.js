@@ -1,4 +1,5 @@
 import db from '../models/index.js';
+import teacherModel from '../models/teacher.model.js';
 
 /**
  * @swagger
@@ -42,16 +43,61 @@ export const createTeacher = async (req, res) => {
  * @swagger
  * /teachers:
  *   get:
- *     summary: Get all teachers
+ *     summary: Get all teacher
  *     tags: [Teachers]
+ *     parameters:
+ *       - in: query
+ *         name: include
+ *         schema: { type : string, default:'' }
+ *         description: Join with another table
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *         description: Number of items per page
+*       - in: query
+ *         name: sort
+ *         schema: { type: string, default: '' }
+ *         description: sort by acs [A-Z] or desc [Z-A]
+ *       - in: query
+ *         name: column
+ *         schema: { type: string, default: 'createdAt' }
+ *         description: sort by column
  *     responses:
  *       200:
- *         description: List of teachers
+ *         description: List of Teacher
+ * 
  */
 export const getAllTeachers = async (req, res) => {
+    const limit = parseInt(req.query.limit) || 10;
+    const page = parseInt(req.query.page) || 1;
+    const joinWith = req.query.include || ''
+    const total = await db.Student.count();
+    const sortType = req.query.sort || 'ASC'
+    const sortColumn = req.query.column || 'id'
+
+    const includeOption = (joinWith === 'Courses') ? [{ model: db.Course }]: [];
+    const order = [
+        [sortColumn,sortType]
+    ]
     try {
-        const teachers = await db.Teacher.findAll({ include: db.Course });
-        res.json(teachers);
+        const teachers = await db.Teacher.findAll({
+            order,
+            include:includeOption,
+            limit: limit, 
+            offset: (page - 1) * limit
+        });
+        res.json({
+            meta: {
+                totalItems: total,
+                page: page,
+                totalPages: Math.ceil(total / limit),
+            },
+            data: teachers,
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
